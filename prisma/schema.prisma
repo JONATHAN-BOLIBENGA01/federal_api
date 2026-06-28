@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  password     String
+  name         String
+  role         Role          @default(USER)
+  avatar       String?
+  articles     Article[]
+  comments     Comment[]
+  interactions Interaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("users")
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  articles  Article[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("categories")
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  articles  Article[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("tags")
+}
+
+model Article {
+  id            String        @id @default(uuid())
+  title         String
+  slug          String        @unique
+  content       String        @db.Text
+  excerpt       String?       @db.Text
+  featuredImage String?
+  status        ArticleStatus @default(DRAFT)
+  visibility    Visibility    @default(PUBLIC)
+  isFeatured    Boolean       @default(false)
+  allowComments Boolean       @default(true)
+  allowShare    Boolean       @default(true)
+  views         Int           @default(0)
+  
+  authorId      String
+  author        User          @relation(fields: [authorId], references: [id])
+  
+  categoryId    String?
+  category      Category?     @relation(fields: [categoryId], references: [id])
+  
+  tags          Tag[]
+  comments      Comment[]
+  interactions  Interaction[]
+
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  @@map("articles")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("comments")
+}
+
+enum InteractionType {
+  LIKE
+  LOVE
+  SAVE
+}
+
+model Interaction {
+  id        String          @id @default(uuid())
+  type      InteractionType
+  
+  articleId String
+  article   Article         @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime        @default(now())
+
+  @@unique([articleId, userId, type])
+  @@map("interactions")
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("newsletter_subscribers")
+}
