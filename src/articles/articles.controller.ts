@@ -15,8 +15,12 @@ export class ArticlesController {
   }
 
   @Get()
-  findAll(@Query('status') status?: string, @Query('search') search?: string) {
-    return this.articlesService.findAll(status, search);
+  findAll(
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('category') category?: string,
+  ) {
+    return this.articlesService.findAll(status, search, category);
   }
 
   @Get('slug/:slug')

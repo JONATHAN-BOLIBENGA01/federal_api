@@ -70,12 +70,14 @@ export class ArticlesService {
     });
   }
 
-  async findAll(status?: string, search?: string) {
+  async findAll(status?: string, search?: string, category?: string) {
     const searchTerm = search?.trim();
+    const categorySlug = category?.trim();
 
     return this.prisma.article.findMany({
       where: {
         ...(status ? { status: status as any } : {}),
+        ...(categorySlug ? { category: { slug: categorySlug } } : {}),
         ...(searchTerm
           ? {
               OR: [
