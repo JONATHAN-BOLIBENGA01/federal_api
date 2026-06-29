@@ -5,6 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { PrismaClient, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { json, urlencoded } from 'express';
 
 const defaultAllowedOrigins = [
   'http://localhost:5173',
@@ -77,6 +78,9 @@ async function bootstrap() {
   await ensureAdminUser();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ limit: '10mb', extended: true }));
   
   // Enable CORS for frontend
   app.enableCors({
