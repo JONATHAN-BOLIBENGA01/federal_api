@@ -4,12 +4,30 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 
+const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://frontend-federal-rosy.vercel.app',
+];
+
+const allowedOrigins = (process.env.CORS_ORIGINS || defaultAllowedOrigins.join(','))
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
   // Enable CORS for frontend
   app.enableCors({
-    origin: '*', // In production, replace with your frontend URL
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
