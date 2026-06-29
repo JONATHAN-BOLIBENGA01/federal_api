@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import { PrismaClient, Role } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const defaultAllowedOrigins = [
   'http://localhost:5173',
@@ -28,7 +30,52 @@ const allowedOriginPatterns = (
   .filter(Boolean)
   .map((pattern) => new RegExp(pattern));
 
+async function ensureAdminUser() {
+  const prisma = new PrismaClient();
+  const email = process.env.ADMIN_EMAIL || 'admin@lefederal.cd';
+  const name = process.env.ADMIN_NAME || 'Admin Le Federal';
+  const password = process.env.ADMIN_PASSWORD || 'admin123';
+
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, role: true },
+    });
+
+    if (existingUser) {
+      if (existingUser.role !== Role.ADMIN) {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { role: Role.ADMIN, name },
+        });
+        console.log(`Admin role restored for ${email}`);
+        return;
+      }
+
+      console.log(`Admin already exists: ${email}`);
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await prisma.user.create({
+      data: {
+        email,
+        name,
+        password: hashedPassword,
+        role: Role.ADMIN,
+      },
+    });
+
+    console.log(`Admin created: ${email}`);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 async function bootstrap() {
+  await ensureAdminUser();
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
   // Enable CORS for frontend
