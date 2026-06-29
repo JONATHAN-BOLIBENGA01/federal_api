@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post } from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
@@ -13,7 +13,7 @@ export class AppController {
   @Post('newsletter/subscribe')
   async subscribeNewsletter(@Body('email') email: string) {
     if (!email) {
-      throw new HttpException('Email est requis', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('Email est requis');
     }
     return this.appService.subscribeNewsletter(email);
   }

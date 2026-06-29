@@ -15,8 +15,8 @@ export class ArticlesController {
   }
 
   @Get()
-  findAll(@Query('status') status?: string) {
-    return this.articlesService.findAll(status);
+  findAll(@Query('status') status?: string, @Query('search') search?: string) {
+    return this.articlesService.findAll(status, search);
   }
 
   @Get('slug/:slug')

@@ -70,14 +70,32 @@ export class ArticlesService {
     });
   }
 
-  async findAll(status?: string) {
+  async findAll(status?: string, search?: string) {
+    const searchTerm = search?.trim();
+
     return this.prisma.article.findMany({
-      where: status ? { status: status as any } : undefined,
+      where: {
+        ...(status ? { status: status as any } : {}),
+        ...(searchTerm
+          ? {
+              OR: [
+                { title: { contains: searchTerm, mode: 'insensitive' as const } },
+                { excerpt: { contains: searchTerm, mode: 'insensitive' as const } },
+                { content: { contains: searchTerm, mode: 'insensitive' as const } },
+                { category: { name: { contains: searchTerm, mode: 'insensitive' as const } } },
+                { tags: { some: { name: { contains: searchTerm, mode: 'insensitive' as const } } } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         category: true,
         tags: true,
-        author: { select: { id: true, name: true, avatar: true } }
+        author: { select: { id: true, name: true, avatar: true } },
+        _count: {
+          select: { interactions: true, comments: true }
+        }
       }
     });
   }
@@ -184,6 +202,10 @@ export class ArticlesService {
   }
 
   async interact(articleId: string, userId: string, type: 'LIKE' | 'LOVE' | 'SAVE') {
+    if (!['LIKE', 'LOVE', 'SAVE'].includes(type)) {
+      throw new BadRequestException('Invalid interaction type');
+    }
+
     const existingInteraction = await this.prisma.interaction.findUnique({
       where: {
         articleId_userId_type: {
@@ -194,20 +216,40 @@ export class ArticlesService {
       }
     });
 
+    let action: 'added' | 'removed' = 'added';
+
     if (existingInteraction) {
-      // Toggle off (remove interaction)
-      return this.prisma.interaction.delete({
+      action = 'removed';
+      await this.prisma.interaction.delete({
         where: { id: existingInteraction.id }
+      });
+    } else {
+      await this.prisma.interaction.create({
+        data: {
+          type,
+          article: { connect: { id: articleId } },
+          user: { connect: { id: userId } }
+        }
       });
     }
 
-    // Toggle on (add interaction)
-    return this.prisma.interaction.create({
-      data: {
-        type,
-        article: { connect: { id: articleId } },
-        user: { connect: { id: userId } }
-      }
-    });
+    const [totalInteractions, userInteractions] = await Promise.all([
+      this.prisma.interaction.count({
+        where: { articleId },
+      }),
+      this.prisma.interaction.findMany({
+        where: { articleId, userId },
+        select: { type: true },
+      }),
+    ]);
+
+    return {
+      action,
+      type,
+      counts: {
+        interactions: totalInteractions,
+      },
+      activeTypes: userInteractions.map((interaction) => interaction.type),
+    };
   }
 }
