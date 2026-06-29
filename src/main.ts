@@ -8,6 +8,11 @@ const defaultAllowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'https://federal-frontend-rosy.vercel.app',
+  'https://federal-frontend-kwehgy6bw-jonathan-bolibenga01s-projects.vercel.app',
+];
+
+const defaultAllowedOriginPatterns = [
+  '^https://federal-frontend-[a-z0-9-]+\\.vercel\\.app$',
 ];
 
 const allowedOrigins = (process.env.CORS_ORIGINS || defaultAllowedOrigins.join(','))
@@ -15,20 +20,33 @@ const allowedOrigins = (process.env.CORS_ORIGINS || defaultAllowedOrigins.join('
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const allowedOriginPatterns = (
+  process.env.CORS_ORIGIN_PATTERNS || defaultAllowedOriginPatterns.join(',')
+)
+  .split(',')
+  .map((pattern) => pattern.trim())
+  .filter(Boolean)
+  .map((pattern) => new RegExp(pattern));
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
   // Enable CORS for frontend
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      const isAllowedOrigin =
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        allowedOriginPatterns.some((pattern) => pattern.test(origin));
+
+      if (isAllowedOrigin) {
         callback(null, true);
         return;
       }
 
       callback(new Error(`Origin ${origin} is not allowed by CORS`));
     },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
