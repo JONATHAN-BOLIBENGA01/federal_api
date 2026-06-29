@@ -6,18 +6,34 @@ export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
   async create(createCategoryDto: { name: string; slug: string }) {
-    const existing = await this.prisma.category.findUnique({
-      where: { slug: createCategoryDto.slug },
+    const payload = {
+      name: createCategoryDto.name.trim(),
+      slug: createCategoryDto.slug.trim(),
+    };
+
+    const existing = await this.prisma.category.findFirst({
+      where: {
+        OR: [{ slug: payload.slug }, { name: payload.name }],
+      },
     });
-    if (existing) throw new ConflictException('Category slug already exists');
+    if (existing) {
+      throw new ConflictException(
+        existing.slug === payload.slug
+          ? 'Category slug already exists'
+          : 'Category name already exists',
+      );
+    }
 
     return this.prisma.category.create({
-      data: createCategoryDto,
+      data: payload,
     });
   }
 
   async findAll() {
     return this.prisma.category.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
       include: {
         _count: {
           select: { articles: true }
@@ -39,9 +55,34 @@ export class CategoriesService {
   }
 
   async update(id: string, updateCategoryDto: { name?: string; slug?: string }) {
+    const payload = {
+      ...(updateCategoryDto.name ? { name: updateCategoryDto.name.trim() } : {}),
+      ...(updateCategoryDto.slug ? { slug: updateCategoryDto.slug.trim() } : {}),
+    };
+
+    if (payload.name || payload.slug) {
+      const duplicate = await this.prisma.category.findFirst({
+        where: {
+          NOT: { id },
+          OR: [
+            ...(payload.slug ? [{ slug: payload.slug }] : []),
+            ...(payload.name ? [{ name: payload.name }] : []),
+          ],
+        },
+      });
+
+      if (duplicate) {
+        throw new ConflictException(
+          duplicate.slug === payload.slug
+            ? 'Category slug already exists'
+            : 'Category name already exists',
+        );
+      }
+    }
+
     return this.prisma.category.update({
       where: { id },
-      data: updateCategoryDto,
+      data: payload,
     });
   }
 

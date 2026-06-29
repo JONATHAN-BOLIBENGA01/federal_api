@@ -1,23 +1,64 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
+
+const MAX_ARTICLE_WORDS = 1200;
 
 @Injectable()
 export class ArticlesService {
   constructor(private prisma: PrismaService) {}
 
+  private countWords(content: string) {
+    return content.trim() ? content.trim().split(/\s+/).filter(Boolean).length : 0;
+  }
+
+  private validateWordLimit(content: string) {
+    const wordCount = this.countWords(content);
+
+    if (wordCount > MAX_ARTICLE_WORDS) {
+      throw new BadRequestException(
+        `Article too long. Maximum allowed is ${MAX_ARTICLE_WORDS} words.`,
+      );
+    }
+  }
+
+  private slugify(value: string) {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+  }
+
+  private buildTagConnectOrCreate(tags?: string[]) {
+    const uniqueTags = [...new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean))];
+
+    return uniqueTags.map((name) => ({
+      where: { slug: this.slugify(name) },
+      create: {
+        name,
+        slug: this.slugify(name),
+      },
+    }));
+  }
+
   async create(createArticleDto: CreateArticleDto, authorId: string) {
     const { tags, categoryId, ...data } = createArticleDto;
+    const tagConnections = this.buildTagConnectOrCreate(tags);
+
+    this.validateWordLimit(data.content);
     
     return this.prisma.article.create({
       data: {
         ...data,
+        ...(data.status === 'PUBLISHED' ? { publishedAt: new Date() } : {}),
         author: { connect: { id: authorId } },
         ...(categoryId && { category: { connect: { id: categoryId } } }),
-        ...(tags && tags.length > 0 && {
+        ...(tagConnections.length > 0 && {
           tags: {
-            connect: tags.map(tagId => ({ id: tagId }))
+            connectOrCreate: tagConnections,
           }
         })
       },
@@ -86,16 +127,39 @@ export class ArticlesService {
   }
 
   async update(id: string, updateArticleDto: UpdateArticleDto) {
+    const existingArticle = await this.prisma.article.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        content: true,
+        status: true,
+        publishedAt: true,
+      },
+    });
+
+    if (!existingArticle) {
+      throw new NotFoundException('Article not found');
+    }
+
     const { tags, categoryId, ...data } = updateArticleDto;
+    const nextStatus = data.status ?? existingArticle.status;
+    const nextContent = data.content ?? existingArticle.content;
+    const tagConnections = this.buildTagConnectOrCreate(tags);
+
+    this.validateWordLimit(nextContent);
 
     return this.prisma.article.update({
       where: { id },
       data: {
         ...data,
+        ...(nextStatus === 'PUBLISHED' && !existingArticle.publishedAt
+          ? { publishedAt: new Date() }
+          : {}),
         ...(categoryId && { category: { connect: { id: categoryId } } }),
         ...(tags && {
           tags: {
-            set: tags.map(tagId => ({ id: tagId }))
+            set: [],
+            connectOrCreate: tagConnections,
           }
         })
       },

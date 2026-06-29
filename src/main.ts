@@ -20,8 +20,8 @@ async function bootstrap() {
     transform: true,
   }));
 
-  // Serve uploaded files statically
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  // Serve uploaded files statically from the project root in both dev and dist builds.
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });
 
