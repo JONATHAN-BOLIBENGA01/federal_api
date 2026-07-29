@@ -102,6 +102,9 @@ export class DashboardService {
         category: true,
         tags: true,
         author: { select: { id: true, name: true, avatar: true } },
+        socialPublications: {
+          orderBy: { platform: 'asc' as const },
+        },
         _count: {
           select: { interactions: true, comments: true },
         },

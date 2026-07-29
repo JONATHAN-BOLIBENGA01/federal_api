@@ -2,12 +2,44 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
+import { PublishArticleSocialsDto } from './dto/publish-article-socials.dto';
+import { SocialPublishingService } from '../social/social-publishing.service';
 
 const MAX_ARTICLE_WORDS = 1200;
 
 @Injectable()
 export class ArticlesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private socialPublishingService: SocialPublishingService,
+  ) {}
+
+  private buildSocialSelection(data: {
+    shareOnFacebook?: boolean;
+    shareOnInstagram?: boolean;
+    shareOnX?: boolean;
+  }) {
+    return {
+      ...(typeof data.shareOnFacebook === 'boolean'
+        ? { shareOnFacebook: data.shareOnFacebook }
+        : {}),
+      ...(typeof data.shareOnInstagram === 'boolean'
+        ? { shareOnInstagram: data.shareOnInstagram }
+        : {}),
+      ...(typeof data.shareOnX === 'boolean' ? { shareOnX: data.shareOnX } : {}),
+    };
+  }
+
+  private baseArticleInclude() {
+    return {
+      category: true,
+      tags: true,
+      author: { select: { id: true, name: true, avatar: true } },
+      socialPublications: {
+        orderBy: { platform: 'asc' as const },
+      },
+    };
+  }
 
   private countWords(content: string) {
     return content.trim() ? content.trim().split(/\s+/).filter(Boolean).length : 0;
@@ -47,12 +79,14 @@ export class ArticlesService {
   async create(createArticleDto: CreateArticleDto, authorId: string) {
     const { tags, categoryId, ...data } = createArticleDto;
     const tagConnections = this.buildTagConnectOrCreate(tags);
+    const socialSelection = this.buildSocialSelection(data);
 
     this.validateWordLimit(data.content);
-    
-    return this.prisma.article.create({
+
+    const article = await this.prisma.article.create({
       data: {
         ...data,
+        ...socialSelection,
         ...(data.status === 'PUBLISHED' ? { publishedAt: new Date() } : {}),
         author: { connect: { id: authorId } },
         ...(categoryId && { category: { connect: { id: categoryId } } }),
@@ -62,12 +96,15 @@ export class ArticlesService {
           }
         })
       },
-      include: {
-        category: true,
-        tags: true,
-        author: { select: { id: true, name: true, avatar: true } }
-      }
+      include: this.baseArticleInclude(),
     });
+
+    if (article.status === 'PUBLISHED') {
+      await this.socialPublishingService.publishArticle(article);
+      return this.findOne(article.id);
+    }
+
+    return article;
   }
 
   async findAll(status?: string, search?: string, category?: string) {
@@ -95,6 +132,9 @@ export class ArticlesService {
         category: true,
         tags: true,
         author: { select: { id: true, name: true, avatar: true } },
+        socialPublications: {
+          orderBy: { platform: 'asc' as const },
+        },
         _count: {
           select: { interactions: true, comments: true }
         }
@@ -112,6 +152,9 @@ export class ArticlesService {
         comments: {
           include: { user: { select: { id: true, name: true, avatar: true } } },
           orderBy: { createdAt: 'desc' }
+        },
+        socialPublications: {
+          orderBy: { platform: 'asc' as const },
         },
         _count: {
           select: { interactions: true, comments: true }
@@ -133,6 +176,9 @@ export class ArticlesService {
         category: true,
         tags: true,
         author: { select: { id: true, name: true, avatar: true } },
+        socialPublications: {
+          orderBy: { platform: 'asc' as const },
+        },
         _count: {
           select: { interactions: true, comments: true }
         }
@@ -165,13 +211,15 @@ export class ArticlesService {
     const nextStatus = data.status ?? existingArticle.status;
     const nextContent = data.content ?? existingArticle.content;
     const tagConnections = this.buildTagConnectOrCreate(tags);
+    const socialSelection = this.buildSocialSelection(data);
 
     this.validateWordLimit(nextContent);
 
-    return this.prisma.article.update({
+    const article = await this.prisma.article.update({
       where: { id },
       data: {
         ...data,
+        ...socialSelection,
         ...(nextStatus === 'PUBLISHED' && !existingArticle.publishedAt
           ? { publishedAt: new Date() }
           : {}),
@@ -183,11 +231,35 @@ export class ArticlesService {
           }
         })
       },
-      include: {
-        category: true,
-        tags: true
-      }
+      include: this.baseArticleInclude(),
     });
+
+    if (nextStatus === 'PUBLISHED' && !existingArticle.publishedAt) {
+      await this.socialPublishingService.publishArticle(article);
+      return this.findOne(article.id);
+    }
+
+    return article;
+  }
+
+  async publishToSocials(id: string, publishArticleSocialsDto: PublishArticleSocialsDto) {
+    const article = await this.prisma.article.findUnique({
+      where: { id },
+      include: this.baseArticleInclude(),
+    });
+
+    if (!article) {
+      throw new NotFoundException('Article not found');
+    }
+
+    if (article.status !== 'PUBLISHED') {
+      throw new BadRequestException(
+        'Only published articles can be sent to social platforms.',
+      );
+    }
+
+    await this.socialPublishingService.publishArticle(article, publishArticleSocialsDto);
+    return this.findOne(id);
   }
 
   async remove(id: string) {

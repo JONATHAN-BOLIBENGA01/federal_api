@@ -3,6 +3,7 @@ import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PublishArticleSocialsDto } from './dto/publish-article-socials.dto';
 
 @Controller('articles')
 export class ArticlesController {
@@ -37,6 +38,15 @@ export class ArticlesController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateArticleDto: UpdateArticleDto) {
     return this.articlesService.update(id, updateArticleDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/social-publish')
+  publishToSocials(
+    @Param('id') id: string,
+    @Body() publishArticleSocialsDto: PublishArticleSocialsDto,
+  ) {
+    return this.articlesService.publishToSocials(id, publishArticleSocialsDto);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -23,6 +23,18 @@ enum Visibility {
   PRIVATE
 }
 
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  X
+}
+
+enum SocialPublicationStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
 model User {
   id           String        @id @default(uuid())
   email        String        @unique
@@ -73,6 +85,9 @@ model Article {
   isFeatured    Boolean       @default(false)
   allowComments Boolean       @default(true)
   allowShare    Boolean       @default(true)
+  shareOnFacebook  Boolean    @default(true)
+  shareOnInstagram Boolean    @default(true)
+  shareOnX         Boolean    @default(true)
   views         Int           @default(0)
   
   authorId      String
@@ -84,12 +99,32 @@ model Article {
   tags          Tag[]
   comments      Comment[]
   interactions  Interaction[]
+  socialPublications SocialPublication[]
 
   publishedAt   DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   
   @@map("articles")
+}
+
+model SocialPublication {
+  id              String                  @id @default(uuid())
+  articleId       String
+  article         Article                 @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  platform        SocialPlatform
+  status          SocialPublicationStatus
+  externalPostId  String?
+  externalUrl     String?
+  errorMessage    String?                 @db.Text
+  attempts        Int                     @default(0)
+  lastAttemptedAt DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@unique([articleId, platform])
+  @@map("social_publications")
 }
 
 model Comment {

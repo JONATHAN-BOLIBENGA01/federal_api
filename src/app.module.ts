@@ -9,6 +9,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { TagsModule } from './tags/tags.module';
 import { UploadModule } from './upload/upload.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { SocialModule } from './social/social.module';
 
 @Module({
   imports: [
@@ -19,7 +20,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
     CategoriesModule, 
     TagsModule, 
     UploadModule, 
-    DashboardModule
+    DashboardModule,
+    SocialModule,
   ],
   controllers: [AppController],
   providers: [AppService],

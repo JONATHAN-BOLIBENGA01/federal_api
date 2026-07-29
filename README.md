@@ -31,6 +31,53 @@
 $ npm install
 ```
 
+## Social publishing setup
+
+Automatic publishing is triggered when an article changes to `PUBLISHED`.
+
+1. Run the new migration:
+
+```bash
+$ npx prisma migrate deploy
+```
+
+2. Configure the public URLs used in shared posts:
+
+```env
+SOCIAL_PUBLIC_SITE_URL=https://your-frontend-domain.example
+SOCIAL_ASSET_BASE_URL=https://your-api-domain.example
+SOCIAL_META_API_VERSION=v23.0
+```
+
+3. Configure Facebook Page publishing:
+
+```env
+SOCIAL_FACEBOOK_PAGE_ID=...
+SOCIAL_FACEBOOK_PAGE_ACCESS_TOKEN=...
+```
+
+4. Configure Instagram publishing for a professional account linked to a Facebook Page:
+
+```env
+SOCIAL_INSTAGRAM_IG_USER_ID=...
+SOCIAL_INSTAGRAM_PAGE_ACCESS_TOKEN=...
+```
+
+5. Configure X publishing:
+
+```env
+SOCIAL_X_API_KEY=...
+SOCIAL_X_API_SECRET=...
+SOCIAL_X_ACCESS_TOKEN=...
+SOCIAL_X_ACCESS_TOKEN_SECRET=...
+```
+
+Notes:
+
+- Instagram publishing requires a public image URL. Article uploads are now stored in `/uploads/...` to make this possible.
+- Facebook and Instagram accounts must already exist and be connected to the Meta app used for token generation.
+- X publishing currently sends a text post with the article link.
+
 ## Compile and run the project
 
 ```bash

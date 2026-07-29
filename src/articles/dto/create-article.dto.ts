@@ -42,6 +42,18 @@ export class CreateArticleDto {
   @IsOptional()
   allowShare?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  shareOnFacebook?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  shareOnInstagram?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  shareOnX?: boolean;
+
   @IsString()
   @IsOptional()
   categoryId?: string;

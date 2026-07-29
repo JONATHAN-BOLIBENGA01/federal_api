@@ -9,7 +9,6 @@ import { json, urlencoded } from 'express';
 
 const defaultAllowedOrigins = [
   'http://localhost:5173',
-  'http://127.0.0.1:5173',
   'https://federal-frontend-rosy.vercel.app',
   'https://federal-frontend-kwehgy6bw-jonathan-bolibenga01s-projects.vercel.app',
 ];
