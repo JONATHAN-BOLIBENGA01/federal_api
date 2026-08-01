@@ -3,6 +3,7 @@ import { AppModule } from '../src/app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
 import express, { json, urlencoded } from 'express';
+import cors from 'cors';
 import { PrismaClient, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { join } from 'path';
@@ -85,8 +86,8 @@ async function createServer() {
   expressApp.use(json({ limit: '10mb' }));
   expressApp.use(urlencoded({ limit: '10mb', extended: true }));
 
-  app.enableCors({
-    origin: (origin, callback) => {
+  const corsOptions = {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       const isAllowedOrigin =
         !origin ||
         allowedOrigins.includes(origin) ||
@@ -101,7 +102,12 @@ async function createServer() {
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
-  });
+    allowedHeaders: 'Content-Type, Authorization',
+    optionsSuccessStatus: 204,
+  };
+
+  expressApp.use(cors(corsOptions));
+  app.enableCors(corsOptions);
 
   app.useGlobalPipes(
     new ValidationPipe({
