@@ -49,8 +49,16 @@ function getStorage() {
 }
 
 function supabasePublicUrl(key: string) {
-  const baseUrl = process.env.SUPABASE_PUBLIC_URL || `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_BUCKET}`;
-  return `${baseUrl.replace(/\/$/, '')}/${encodeURIComponent(key)}`;
+  const rawBaseUrl =
+    process.env.SUPABASE_PUBLIC_URL || `${process.env.SUPABASE_URL}/storage/v1/object/public`;
+  const baseUrl = rawBaseUrl.replace(/\/$/, '');
+  const bucket = process.env.SUPABASE_BUCKET?.replace(/^\/|\/$/g, '') ?? '';
+
+  if (bucket && !baseUrl.endsWith(`/public/${bucket}`)) {
+    return `${baseUrl}/${bucket}/${encodeURI(key)}`;
+  }
+
+  return `${baseUrl}/${encodeURI(key)}`;
 }
 
 function r2PublicUrl(key: string) {
